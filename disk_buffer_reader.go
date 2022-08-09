@@ -82,7 +82,6 @@ func (dbr *DiskBufferReader) Read(out []byte) (int, error) {
 		dbr.tmpFile.Seek(dbr.index, io.SeekStart)
 	}
 	for {
-
 		n, err := mr.Read(outMulti)
 		if err != nil {
 			if !errors.Is(err, io.EOF) {
@@ -95,10 +94,19 @@ func (dbr *DiskBufferReader) Read(out []byte) (int, error) {
 		bytesRead += n
 
 		if errors.Is(outErr, io.EOF) || bytesRead >= outLen {
+			if bytesRead > 0 && bytesRead < outLen && errors.Is(err, io.EOF) {
+				fmt.Printf("%d", bytesRead)
+				outErr = nil
+			}
+
 			break
 		}
 	}
-	copy(out, outBuffer.Bytes())
+	outStart := dbr.index
+	if int64(bytesRead) < dbr.index {
+		outStart = int64(bytesRead)
+	}
+	copy(out, outBuffer.Bytes()[outStart:])
 	dbr.index = int64(bytesRead)
 	return bytesRead, outErr
 }

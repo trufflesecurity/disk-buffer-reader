@@ -3,155 +3,74 @@ package diskbufferreader
 import (
 	"bytes"
 	"errors"
-	"io"
 	"testing"
 )
 
-func TestReadExactReaderSize(t *testing.T) {
-	readBytes := []byte("OneTwoThreeFourFive")
-	reader := bytes.NewBuffer(readBytes)
-	dbr, err := New(reader)
-	if err != nil {
-		t.Fatal(err)
-	}
-	defer dbr.Close()
-	outBytes := make([]byte, len(readBytes))
-	n, err := dbr.Read(outBytes)
-	if err != nil {
-		t.Fatal(err)
-	}
-	if n != len(readBytes) {
-		t.Fatalf("Wrong number of bytes read. Expected: %d, got: %d", len(readBytes), n)
-	}
-}
-
-func TestReadMoreThanReaderSize(t *testing.T) {
-	readBytes := []byte("OneTwoThreeFourFive")
-	reader := bytes.NewBuffer(readBytes)
-	dbr, err := New(reader)
-	if err != nil {
-		t.Fatal(err)
-	}
-	defer dbr.Close()
-	outBytes := make([]byte, len(readBytes)+1)
-	n, err := dbr.Read(outBytes)
-	if !errors.Is(err, io.EOF) {
-		t.Fatal(err)
-	}
-	if n != len(readBytes) {
-		t.Fatalf("Wrong number of bytes read. Expected: %d, got: %d", len(readBytes), n)
-	}
-}
-
-func TestReadTwiceNoEOF(t *testing.T) {
-	readBytes := []byte("OneTwoThreeFourFive")
-	reader := bytes.NewBuffer(readBytes)
-	dbr, err := New(reader)
-	if err != nil {
-		t.Fatal(err)
-	}
-	defer dbr.Close()
-	outBytes := make([]byte, 3)
-	_, err = dbr.Read(outBytes)
-	if err != nil {
-		t.Fatal(err)
-	}
-	if string(outBytes) != string(readBytes[:3]) {
-		t.Fatalf("Wrong byte content. Expected: %s, got: %s", readBytes[:3], outBytes)
+func TestDiskBufferReader(t *testing.T) {
+	tests := map[string]struct {
+		iterations int
+		readSize   int
+		content    string
+	}{
+		"SingleReadSizeSmall": {
+			1,
+			3,
+			"OneTwoThree",
+		},
+		"SingleReadSizeEqual": {
+			1,
+			11,
+			"OneTwoThree",
+		},
+		"SingleReadSizeLarge": {
+			1,
+			64,
+			"OneTwoThree",
+		},
+		"DoubleReadSizeSmall": {
+			2,
+			3,
+			"OneTwoThree",
+		},
+		"DoubleReadSizeEqual": {
+			2,
+			11,
+			"OneTwoThree",
+		},
+		"DoubleReadSizeLarge": {
+			2,
+			64,
+			"OneTwoThree",
+		},
 	}
 
-	outBytes = make([]byte, 6)
-	_, err = dbr.Read(outBytes)
-	if err != nil {
-		t.Fatal(err)
-	}
-	if string(outBytes) != string(readBytes[3:9]) {
-		t.Fatalf("Wrong byte content. Expected: %s, got: %s", readBytes[3:9], outBytes)
-	}
-}
+	for testName, testCase := range tests {
 
-func TestReadTwiceReset(t *testing.T) {
-	readBytes := []byte("OneTwoThreeFourFive")
-	reader := bytes.NewBuffer(readBytes)
-	dbr, err := New(reader)
-	if err != nil {
-		t.Fatal(err)
-	}
-	defer dbr.Close()
-	outBytes := make([]byte, 3)
-	_, err = dbr.Read(outBytes)
-	if err != nil {
-		t.Fatal(err)
-	}
-	if string(outBytes) != string(readBytes[:3]) {
-		t.Fatalf("Wrong byte content. Expected: %s, got: %s", readBytes[:3], outBytes)
-	}
+		readBytes := []byte(testCase.content)
+		bytesReader := bytes.NewBuffer(readBytes)
+		tmpReader := bytes.NewBuffer(readBytes)
+		dbr, err := New(tmpReader)
+		if err != nil {
+			t.Fatal(err)
+		}
+		defer dbr.Close()
+		testBytes := make([]byte, testCase.readSize)
+		baseBytes := make([]byte, testCase.readSize)
+		testN, testErr := dbr.Read(testBytes)
+		baseN, baseErr := bytesReader.Read(baseBytes)
 
-	dbr.Reset()
+		for i := 0; i < testCase.iterations; i++ {
+			if string(testBytes) != string(baseBytes) {
+				t.Fatalf("%s: Unexpected read result. Got: %v, expected: %v", testName, testBytes, baseBytes)
+			}
 
-	outBytes = make([]byte, 3)
-	_, err = dbr.Read(outBytes)
-	if err != nil {
-		t.Fatal(err)
-	}
-	if string(outBytes) != string(readBytes[:3]) {
-		t.Fatalf("Wrong byte content. Expected: %s, got: %s", readBytes[:3], outBytes)
-	}
-}
+			if testN != baseN {
+				t.Fatalf("%s: Wrong number of bytes read. Got: %d, expected: %d", testName, testN, baseN)
+			}
 
-func TestReadTwiceEOF(t *testing.T) {
-	readBytes := []byte("OneTwoThreeFourFive")
-	reader := bytes.NewBuffer(readBytes)
-	dbr, err := New(reader)
-	if err != nil {
-		t.Fatal(err)
-	}
-	defer dbr.Close()
-	outBytes := make([]byte, 3)
-	_, err = dbr.Read(outBytes)
-	if err != nil {
-		t.Fatal(err)
-	}
-	if string(outBytes) != string(readBytes[:3]) {
-		t.Fatalf("Wrong byte content. Expected: %s, got: %s", readBytes[:3], outBytes)
-	}
-
-	outBytes = make([]byte, len(readBytes)+2)
-	n, err := dbr.Read(outBytes)
-	if !errors.Is(err, io.EOF) {
-		t.Fatal(err)
-	}
-
-	if n != len(readBytes)-3 {
-		t.Fatalf("Wrong read length. Expected: %d, got: %d", len(readBytes)-3, n)
-	}
-}
-
-func TestNoRecordingEOF(t *testing.T) {
-	readBytes := []byte("OneTwoThreeFourFive")
-	reader := bytes.NewBuffer(readBytes)
-	dbr, err := New(reader)
-	if err != nil {
-		t.Fatal(err)
-	}
-	defer dbr.Close()
-	outBytes := make([]byte, 3)
-	_, err = dbr.Read(outBytes)
-	if err != nil {
-		t.Fatal(err)
-	}
-	if string(outBytes) != string(readBytes[:3]) {
-		t.Fatalf("Wrong byte content. Expected: %s, got: %s", readBytes[:3], outBytes)
-	}
-
-	dbr.Stop()
-
-	outBytes = make([]byte, 3)
-	_, err = dbr.Read(outBytes)
-	if err != nil {
-		t.Fatal(err)
-	}
-	if string(outBytes) != string(readBytes[3:6]) {
-		t.Fatalf("Wrong byte content. Expected: %s, got %s", outBytes, readBytes[3:6])
+			if !errors.Is(testErr, baseErr) {
+				t.Fatalf("%s: Unexpected error. Got: %s, expected: %s", testName, testErr, baseErr)
+			}
+		}
 	}
 }
