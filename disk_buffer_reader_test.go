@@ -10,7 +10,7 @@ import (
 func TestReadExactReaderSize(t *testing.T) {
 	readBytes := []byte("OneTwoThreeFourFive")
 	reader := bytes.NewBuffer(readBytes)
-	dbr, err := NewDiskBufferReader(reader)
+	dbr, err := New(reader)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -28,7 +28,7 @@ func TestReadExactReaderSize(t *testing.T) {
 func TestReadMoreThanReaderSize(t *testing.T) {
 	readBytes := []byte("OneTwoThreeFourFive")
 	reader := bytes.NewBuffer(readBytes)
-	dbr, err := NewDiskBufferReader(reader)
+	dbr, err := New(reader)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -46,7 +46,7 @@ func TestReadMoreThanReaderSize(t *testing.T) {
 func TestReadTwiceNoEOF(t *testing.T) {
 	readBytes := []byte("OneTwoThreeFourFive")
 	reader := bytes.NewBuffer(readBytes)
-	dbr, err := NewDiskBufferReader(reader)
+	dbr, err := New(reader)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -73,7 +73,7 @@ func TestReadTwiceNoEOF(t *testing.T) {
 func TestReadTwiceEOF(t *testing.T) {
 	readBytes := []byte("OneTwoThreeFourFive")
 	reader := bytes.NewBuffer(readBytes)
-	dbr, err := NewDiskBufferReader(reader)
+	dbr, err := New(reader)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -101,7 +101,7 @@ func TestReadTwiceEOF(t *testing.T) {
 func TestNoRecordingEOF(t *testing.T) {
 	readBytes := []byte("OneTwoThreeFourFive")
 	reader := bytes.NewBuffer(readBytes)
-	dbr, err := NewDiskBufferReader(reader)
+	dbr, err := New(reader)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -115,7 +115,7 @@ func TestNoRecordingEOF(t *testing.T) {
 		t.Fatalf("Wrong byte content. Expected: %s, got: %s", readBytes[:3], outBytes)
 	}
 
-	dbr.StopDiskBuffer()
+	dbr.Stop()
 
 	outBytes = make([]byte, len(readBytes))
 	_, err = dbr.Read(outBytes)

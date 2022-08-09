@@ -15,7 +15,7 @@ type DiskBufferReader struct {
 	tmpFile   *os.File
 }
 
-func NewDiskBufferReader(r io.Reader) (*DiskBufferReader, error) {
+func New(r io.Reader) (*DiskBufferReader, error) {
 	tmpFile, err := ioutil.TempFile("", "disk-buffer-file")
 	if err != nil {
 		return nil, err
@@ -95,7 +95,7 @@ func (dbr *DiskBufferReader) Read(out []byte) (int, error) {
 	return bytesRead, outErr
 }
 
-func (dbr *DiskBufferReader) StopDiskBuffer() {
+func (dbr *DiskBufferReader) Stop() {
 	dbr.recording = false
 }
 
