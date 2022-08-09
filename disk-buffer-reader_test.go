@@ -33,7 +33,7 @@ func TestReadMoreThanReaderSize(t *testing.T) {
 		t.Fatal(err)
 	}
 	defer dbr.Close()
-	outBytes := make([]byte, len(readBytes)+11)
+	outBytes := make([]byte, len(readBytes)+1)
 	n, err := dbr.Read(outBytes)
 	if !errors.Is(err, io.EOF) {
 		t.Fatal(err)
@@ -124,5 +124,14 @@ func TestNoRecordingEOF(t *testing.T) {
 	}
 	if string(outBytes) != string(readBytes) {
 		t.Fatalf("Wrong byte content. Expected: %s, got: %s", readBytes, outBytes)
+	}
+
+	outBytes = make([]byte, len(readBytes))
+	n, err := dbr.Read(outBytes)
+	if !errors.Is(err, io.EOF) {
+		t.Fatal(err)
+	}
+	if n != 0 {
+		t.Fatalf("Wrong byte content. Expected an empty string, got %d bytes", n)
 	}
 }
