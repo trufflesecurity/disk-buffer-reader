@@ -1,3 +1,6 @@
+// Maybe I need to set the read size? n, err := io.Reader.Read(something); n will not be more that 512 unless I set something (ran into this in archive)
+// Only happens when Stop() is run. Why??
+// Make sure read time is similar between standard reader and dbr.
 package diskbufferreader
 
 import (
@@ -68,20 +71,18 @@ func (dbr *DiskBufferReader) Read(out []byte) (int, error) {
 		// Update the number of bytes read.
 		dbr.bytesRead += int64(m)
 
-		// Go back to the beginning of the tmp file so reads start from the beginning.
-		dbr.tmpFile.Seek(dbr.index, io.SeekStart)
 	}
 
 	// Read from the multireader of the tmp file and the reader.
-	mr := io.MultiReader(dbr.tmpFile, dbr.reader)
-	bytesRead := 0
-	outBuffer := bytes.NewBuffer([]byte{})
-	outMulti := make([]byte, len(out))
-	var outErr error
 	if dbr.index <= dbr.bytesRead {
 		dbr.tmpFile.Seek(dbr.index, io.SeekStart)
 	}
+	mr := io.MultiReader(dbr.tmpFile, dbr.reader)
+	bytesRead := 0
+	outBuffer := bytes.NewBuffer([]byte{})
+	var outErr error
 	for {
+		outMulti := make([]byte, len(out)-bytesRead)
 		n, err := mr.Read(outMulti)
 		if err != nil {
 			if !errors.Is(err, io.EOF) {
@@ -102,12 +103,8 @@ func (dbr *DiskBufferReader) Read(out []byte) (int, error) {
 			break
 		}
 	}
-	outStart := dbr.index
-	if int64(bytesRead) < dbr.index {
-		outStart = int64(bytesRead)
-	}
-	copy(out, outBuffer.Bytes()[outStart:])
-	dbr.index = int64(bytesRead)
+	copy(out, outBuffer.Bytes())
+	dbr.index += int64(bytesRead)
 	return bytesRead, outErr
 }
 
