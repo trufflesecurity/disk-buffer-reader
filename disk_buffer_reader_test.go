@@ -1,4 +1,4 @@
-package diskBufferReader
+package diskbufferreader
 
 import (
 	"bytes"
@@ -65,8 +65,37 @@ func TestReadTwiceNoEOF(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if string(outBytes) != string(readBytes[:6]) {
-		t.Fatalf("Wrong byte content. Expected: %s, got: %s", readBytes[:6], outBytes)
+	if string(outBytes) != string(readBytes[3:9]) {
+		t.Fatalf("Wrong byte content. Expected: %s, got: %s", readBytes[3:9], outBytes)
+	}
+}
+
+func TestReadTwiceReset(t *testing.T) {
+	readBytes := []byte("OneTwoThreeFourFive")
+	reader := bytes.NewBuffer(readBytes)
+	dbr, err := New(reader)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer dbr.Close()
+	outBytes := make([]byte, 3)
+	_, err = dbr.Read(outBytes)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if string(outBytes) != string(readBytes[:3]) {
+		t.Fatalf("Wrong byte content. Expected: %s, got: %s", readBytes[:3], outBytes)
+	}
+
+	dbr.Reset()
+
+	outBytes = make([]byte, 3)
+	_, err = dbr.Read(outBytes)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if string(outBytes) != string(readBytes[:3]) {
+		t.Fatalf("Wrong byte content. Expected: %s, got: %s", readBytes[:3], outBytes)
 	}
 }
 
@@ -93,8 +122,8 @@ func TestReadTwiceEOF(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	if n != len(readBytes) {
-		t.Fatalf("Wrong read length. Expected: %d, got: %d", len(readBytes), n)
+	if n != len(readBytes)-3 {
+		t.Fatalf("Wrong read length. Expected: %d, got: %d", len(readBytes)-3, n)
 	}
 }
 
@@ -117,21 +146,12 @@ func TestNoRecordingEOF(t *testing.T) {
 
 	dbr.Stop()
 
-	outBytes = make([]byte, len(readBytes))
+	outBytes = make([]byte, 3)
 	_, err = dbr.Read(outBytes)
 	if err != nil {
 		t.Fatal(err)
 	}
-	if string(outBytes) != string(readBytes) {
-		t.Fatalf("Wrong byte content. Expected: %s, got: %s", readBytes, outBytes)
-	}
-
-	outBytes = make([]byte, len(readBytes))
-	n, err := dbr.Read(outBytes)
-	if !errors.Is(err, io.EOF) {
-		t.Fatal(err)
-	}
-	if n != 0 {
-		t.Fatalf("Wrong byte content. Expected an empty string, got %d bytes", n)
+	if string(outBytes) != string(readBytes[3:6]) {
+		t.Fatalf("Wrong byte content. Expected: %s, got %s", outBytes, readBytes[3:6])
 	}
 }

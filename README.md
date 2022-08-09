@@ -9,30 +9,25 @@ Disk buffer reader uses takes everything read from a reader, writes it to a temp
 func main() {
   readerOriginal := bytes.NewBuffer([]bytes("OneTwoThr")
   dbr, _ := diskBufferReader.NewReader(readerOriginal)
+  defer dbr.Close() // Close reader and delete tmp file.
   message := make([]byte, 3)
-  fmt.Println("With repeat on:")
-  dbr.Read(message)
-  fmt.Println(message)
-  dbr.Read(message)
-  fmt.Println(message)
-
-  fmt.Println("With repeat off:")
-  dbt.Stop()
-  dbr.Read(message)
-  fmt.Println(message)
-  dbr.Read(message)
-  fmt.Println(message)
-  dbr.Read(message)
-  fmt.Println(message)
+  for i := 0; i < 3; i++ {
+    dbr.Read(message)
+    fmt.Println(message)
+  }
+  for i := 0; i < 3; i++ {
+    dbr.Reset() // Reset reader to 0.
+    dbr.Read(message)
+    fmt.Println(message)
+  }
+  dbr.Stop() // Stop storing read bytes in tmp file.
 }
 ```
 ```
-With repeat on:
-One
-One
-
-With repeat off:
 One
 Two
 Thr
+One
+One
+One
 ```

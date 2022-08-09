@@ -1,20 +1,25 @@
-package diskBufferReader
+package diskbufferreader
 
 import (
 	"bytes"
 	"errors"
+	"fmt"
 	"io"
 	"io/ioutil"
 	"os"
 )
 
+// DiskBufferReader uses an io.Reader and stores read bytes to a tmp file so the reader
+// can be reset to the start.
 type DiskBufferReader struct {
 	recording bool
 	reader    io.Reader
 	bytesRead int64
 	tmpFile   *os.File
+	index     int64
 }
 
+// New takes an io.Reader and creates returns an initialized DiskBufferReader.
 func New(r io.Reader) (*DiskBufferReader, error) {
 	tmpFile, err := ioutil.TempFile("", "disk-buffer-file")
 	if err != nil {
@@ -25,20 +30,19 @@ func New(r io.Reader) (*DiskBufferReader, error) {
 		reader:    r,
 		bytesRead: 0,
 		tmpFile:   tmpFile,
+		index:     0,
 	}, nil
 }
 
+// Read from the len(out) bytes from the reader starting at the current index.
 func (dbr *DiskBufferReader) Read(out []byte) (int, error) {
-	if dbr.recording {
-		defer dbr.tmpFile.Seek(0, io.SeekStart)
-	}
 	outLen := len(out)
 
 	if outLen == 0 {
 		return 0, nil
 	}
 
-	if int64(outLen) > dbr.bytesRead && dbr.recording {
+	if int64(outLen)+dbr.index > dbr.bytesRead && dbr.recording {
 		// Go to end of file so writes go at the end.
 		_, err := dbr.tmpFile.Seek(0, io.SeekEnd)
 		if err != nil {
@@ -46,7 +50,7 @@ func (dbr *DiskBufferReader) Read(out []byte) (int, error) {
 		}
 
 		// Will need the difference of the requested bytes and how many are read.
-		bytesToRead := int(int64(outLen) - dbr.bytesRead)
+		bytesToRead := int(int64(outLen) + dbr.index - dbr.bytesRead)
 		readerBytes := make([]byte, bytesToRead)
 
 		// Read the bytes from the reader.
@@ -65,7 +69,7 @@ func (dbr *DiskBufferReader) Read(out []byte) (int, error) {
 		dbr.bytesRead += int64(m)
 
 		// Go back to the beginning of the tmp file so reads start from the beginning.
-		dbr.tmpFile.Seek(0, io.SeekStart)
+		dbr.tmpFile.Seek(dbr.index, io.SeekStart)
 	}
 
 	// Read from the multireader of the tmp file and the reader.
@@ -74,6 +78,9 @@ func (dbr *DiskBufferReader) Read(out []byte) (int, error) {
 	outBuffer := bytes.NewBuffer([]byte{})
 	outMulti := make([]byte, len(out))
 	var outErr error
+	if dbr.index <= dbr.bytesRead {
+		dbr.tmpFile.Seek(dbr.index, io.SeekStart)
+	}
 	for {
 
 		n, err := mr.Read(outMulti)
@@ -92,13 +99,25 @@ func (dbr *DiskBufferReader) Read(out []byte) (int, error) {
 		}
 	}
 	copy(out, outBuffer.Bytes())
+	dbr.index = int64(bytesRead)
 	return bytesRead, outErr
 }
 
+// Reset the reader position to the start.
+func (dbr *DiskBufferReader) Reset() error {
+	if !dbr.recording {
+		return fmt.Errorf("can not reset disk buffer reader after disk buffering is stopped")
+	}
+	dbr.index = 0
+	return nil
+}
+
+// Stop storing the read bytes in the tmp file.
 func (dbr *DiskBufferReader) Stop() {
 	dbr.recording = false
 }
 
+// Close the reader and delete the tmp file.
 func (dbr *DiskBufferReader) Close() error {
 	err := os.Remove(dbr.tmpFile.Name())
 	if err != nil {
