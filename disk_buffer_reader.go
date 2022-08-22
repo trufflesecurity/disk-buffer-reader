@@ -96,7 +96,6 @@ func (dbr *DiskBufferReader) Read(out []byte) (int, error) {
 
 		if errors.Is(outErr, io.EOF) || bytesRead >= outLen {
 			if bytesRead > 0 && bytesRead < outLen && errors.Is(err, io.EOF) {
-				fmt.Printf("%d", bytesRead)
 				outErr = nil
 			}
 
