@@ -116,6 +116,60 @@ func (dbr *DiskBufferReader) Reset() error {
 	return nil
 }
 
+// Seek sets the offset for the next Read or Write to offset.
+func (dbr *DiskBufferReader) Seek(offset int64, whence int) (int64, error) {
+	if !dbr.recording {
+		return 0, fmt.Errorf("can not reset disk buffer reader after disk buffering is stopped")
+	}
+	switch whence {
+	case io.SeekStart:
+		switch {
+		case offset < 0:
+			return 0, fmt.Errorf("can not seek to before start of reader")
+		case offset > dbr.bytesRead:
+			trashBytes := make([]byte, offset-dbr.bytesRead)
+			dbr.Read(trashBytes)
+		}
+		dbr.index = offset
+	case io.SeekCurrent:
+		switch {
+		case dbr.index+offset < 0:
+			return 0, fmt.Errorf("can not seek to before start of reader")
+		case offset > 0:
+			trashBytes := make([]byte, offset)
+			dbr.Read(trashBytes)
+		}
+		dbr.index += offset
+	case io.SeekEnd:
+		trashBytes := make([]byte, 1024)
+		for {
+			_, err := dbr.Read(trashBytes)
+			if errors.Is(err, io.EOF) {
+				break
+			}
+		}
+		if dbr.index+offset < 0 {
+			return 0, fmt.Errorf("can not seek to before start of reader")
+		}
+		dbr.index += offset
+		return dbr.index, nil
+	}
+
+	return dbr.index, nil
+}
+
+// ReadAt reads len(p) bytes into p starting at offset off in the underlying input source.
+func (dbr *DiskBufferReader) ReadAt(out []byte, offset int64) (int, error) {
+	startIndex, err := dbr.Seek(offset, io.SeekStart)
+	switch {
+	case startIndex != offset:
+		return 0, io.EOF
+	case err != nil:
+		return 0, err
+	}
+	return dbr.Read(out)
+}
+
 // Stop storing the read bytes in the tmp file.
 func (dbr *DiskBufferReader) Stop() {
 	dbr.recording = false
