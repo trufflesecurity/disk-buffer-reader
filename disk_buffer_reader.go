@@ -54,6 +54,9 @@ func (dbr *DiskBufferReader) Read(out []byte) (int, error) {
 
 		// Will need the difference of the requested bytes and how many are read.
 		bytesToRead := int(int64(outLen) + dbr.index - dbr.bytesRead)
+		if bytesToRead <= 0 || bytesToRead > len(out) {
+			return 0, fmt.Errorf("unexpected number of new bytes to read. Expected 0 < n <= %d. Got n=%d", len(out), bytesToRead)
+		}
 		readerBytes := make([]byte, bytesToRead)
 
 		// Read the bytes from the reader.
@@ -144,8 +147,11 @@ func (dbr *DiskBufferReader) Seek(offset int64, whence int) (int64, error) {
 		trashBytes := make([]byte, 1024)
 		for {
 			_, err := dbr.Read(trashBytes)
-			if errors.Is(err, io.EOF) {
-				break
+			if err != nil {
+				if errors.Is(err, io.EOF) {
+					break
+				}
+				return dbr.index, err
 			}
 		}
 		if dbr.index+offset < 0 {
@@ -161,6 +167,9 @@ func (dbr *DiskBufferReader) Seek(offset int64, whence int) (int64, error) {
 // ReadAt reads len(p) bytes into p starting at offset off in the underlying input source.
 func (dbr *DiskBufferReader) ReadAt(out []byte, offset int64) (int, error) {
 	startIndex, err := dbr.Seek(offset, io.SeekStart)
+	if err != nil {
+		return 0, err
+	}
 	switch {
 	case startIndex != offset:
 		return 0, io.EOF
