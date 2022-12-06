@@ -4,7 +4,6 @@
 package diskbufferreader
 
 import (
-	"bytes"
 	"errors"
 	"fmt"
 	"io"
@@ -80,34 +79,12 @@ func (dbr *DiskBufferReader) Read(out []byte) (int, error) {
 	if dbr.index <= dbr.bytesRead {
 		dbr.tmpFile.Seek(dbr.index, io.SeekStart)
 	}
+
 	mr := io.MultiReader(dbr.tmpFile, dbr.reader)
-	bytesRead := 0
-	outBuffer := bytes.NewBuffer([]byte{})
-	var outErr error
-	for {
-		outMulti := make([]byte, len(out)-bytesRead)
-		n, err := mr.Read(outMulti)
-		if err != nil {
-			if !errors.Is(err, io.EOF) {
-				return 0, err
-			}
-			outErr = err
-		}
 
-		outBuffer.Write(outMulti[:n])
-		bytesRead += n
-
-		if errors.Is(outErr, io.EOF) || bytesRead >= outLen {
-			if bytesRead > 0 && bytesRead < outLen && errors.Is(err, io.EOF) {
-				outErr = nil
-			}
-
-			break
-		}
-	}
-	copy(out, outBuffer.Bytes())
-	dbr.index += int64(bytesRead)
-	return bytesRead, outErr
+	n, err := mr.Read(out)
+	dbr.index += int64(n)
+	return n, err
 }
 
 // Reset the reader position to the start.
