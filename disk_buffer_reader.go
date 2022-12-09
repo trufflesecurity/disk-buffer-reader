@@ -53,7 +53,7 @@ func (dbr *DiskBufferReader) Read(out []byte) (int, error) {
 
 		// Will need the difference of the requested bytes and how many are read.
 		bytesToRead := int(int64(outLen) + dbr.index - dbr.bytesRead)
-		if bytesToRead <= 0 || bytesToRead > len(out) {
+		if bytesToRead <= 0 {
 			return 0, fmt.Errorf("unexpected number of new bytes to read. Expected 0 < n <= %d. Got n=%d", len(out), bytesToRead)
 		}
 		readerBytes := make([]byte, bytesToRead)
@@ -98,9 +98,6 @@ func (dbr *DiskBufferReader) Reset() error {
 
 // Seek sets the offset for the next Read or Write to offset.
 func (dbr *DiskBufferReader) Seek(offset int64, whence int) (int64, error) {
-	if !dbr.recording {
-		return 0, fmt.Errorf("can not reset disk buffer reader after disk buffering is stopped")
-	}
 	switch whence {
 	case io.SeekStart:
 		switch {
