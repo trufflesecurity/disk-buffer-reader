@@ -180,3 +180,35 @@ func TestReadAllLarge(t *testing.T) {
 		t.Fatalf("Unexpected error. Got: %s, expected: %s", testErr, baseErr)
 	}
 }
+
+func BenchmarkSeek(b *testing.B) {
+	// Use a fixed data source for consistent benchmarking
+	data := make([]byte, 100000) // Example: 100KB of data
+	for i := range data {
+		data[i] = byte(i % 256)
+	}
+
+	// Create a bytes buffer from the data
+	tmpReader := bytes.NewBuffer(data)
+
+	// Create a DiskBufferReader instance
+	dbr, err := New(tmpReader)
+	if err != nil {
+		b.Fatal(err)
+	}
+	defer dbr.Close()
+
+	// Parameters for Seek method
+	whenceOptions := []int{io.SeekStart, io.SeekCurrent, io.SeekEnd}
+	offset := int64(100) // Example offset value
+
+	// Start the benchmark loop
+	b.ResetTimer()
+	for i := 0; i < b.N; i++ {
+		whence := whenceOptions[i%len(whenceOptions)] // Vary whence to cover different cases
+		_, err := dbr.Seek(offset, whence)
+		if err != nil {
+			b.Fatal(err)
+		}
+	}
+}
