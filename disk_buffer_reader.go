@@ -23,7 +23,7 @@ type DiskBufferReader struct {
 
 // New takes an io.Reader and creates returns an initialized DiskBufferReader.
 func New(r io.Reader) (*DiskBufferReader, error) {
-	tmpFile, err := ioutil.TempFile("", "disk-buffer-file")
+	tmpFile, err := ioutil.TempFile(os.TempDir(), "disk-buffer-file")
 	if err != nil {
 		return nil, err
 	}

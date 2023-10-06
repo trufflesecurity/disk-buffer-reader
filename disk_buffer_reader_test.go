@@ -3,8 +3,12 @@ package diskbufferreader
 import (
 	"bytes"
 	"errors"
+	"fmt"
 	"io"
 	"net/http"
+	"os"
+	"path/filepath"
+	"strings"
 	"testing"
 )
 
@@ -178,6 +182,38 @@ func TestReadAllLarge(t *testing.T) {
 
 	if !errors.Is(testErr, baseErr) {
 		t.Fatalf("Unexpected error. Got: %s, expected: %s", testErr, baseErr)
+	}
+}
+
+func TestTmpDir(t *testing.T) {
+	tmpDir := "/tmp/dbrtest"
+
+	err := os.Mkdir(tmpDir, 0755)
+	if !os.IsExist(err) {
+		t.Fatal(err)
+	}
+	defer os.RemoveAll(tmpDir)
+
+	os.Setenv("TMPDIR", tmpDir)
+
+	reader := strings.NewReader("TestString")
+	dbr, err := New(reader)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	defer dbr.Close()
+
+	testBytes := make([]byte, 1)
+	_, err = dbr.Read(testBytes)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	tmpFileName := filepath.Base(dbr.tmpFile.Name())
+	_, err = os.Stat(fmt.Sprintf("%s/%s", tmpDir, tmpFileName))
+	if err != nil {
+		t.Fatal(err)
 	}
 }
 
