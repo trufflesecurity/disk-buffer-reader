@@ -98,46 +98,44 @@ func (dbr *DiskBufferReader) Reset() error {
 
 // Seek sets the offset for the next Read or Write to offset.
 func (dbr *DiskBufferReader) Seek(offset int64, whence int) (int64, error) {
-	newIndex := dbr.index
-
 	switch whence {
 	case io.SeekStart:
-		newIndex = offset
+		switch {
+		case offset < 0:
+			return 0, fmt.Errorf("can not seek to before start of reader")
+		case offset > dbr.bytesRead:
+			trashBytes := make([]byte, offset-dbr.bytesRead)
+			dbr.Read(trashBytes)
+		}
+		dbr.index = offset
 	case io.SeekCurrent:
-		newIndex += offset
+		switch {
+		case dbr.index+offset < 0:
+			return 0, fmt.Errorf("can not seek to before start of reader")
+		case offset > 0:
+			trashBytes := make([]byte, offset)
+			dbr.Read(trashBytes)
+		}
+		dbr.index += offset
 	case io.SeekEnd:
-		newIndex = dbr.bytesRead + offset
+		trashBytes := make([]byte, 1024)
+		for {
+			_, err := dbr.Read(trashBytes)
+			if err != nil {
+				if errors.Is(err, io.EOF) {
+					break
+				}
+				return dbr.index, err
+			}
+		}
+		if dbr.index+offset < 0 {
+			return 0, fmt.Errorf("can not seek to before start of reader")
+		}
+		dbr.index += offset
+		return dbr.index, nil
 	}
 
-	if newIndex < 0 {
-		return 0, fmt.Errorf("can not seek to before start of reader")
-	}
-
-	// If seeking past the bytes read and recording is on, fill the gap by reading the necessary bytes.
-	if newIndex > dbr.bytesRead && dbr.recording {
-		_, err := dbr.tmpFile.Seek(0, io.SeekEnd)
-		if err != nil {
-			return 0, err
-		}
-
-		bytesToRead := int(newIndex - dbr.bytesRead)
-		trashBytes := make([]byte, bytesToRead)
-
-		n, err := dbr.reader.Read(trashBytes)
-		if err != nil && !errors.Is(err, io.EOF) {
-			return 0, err
-		}
-
-		m, err := dbr.tmpFile.Write(trashBytes[:n])
-		if err != nil {
-			return 0, err
-		}
-
-		dbr.bytesRead += int64(m)
-	}
-
-	dbr.index = newIndex
-	return newIndex, nil
+	return dbr.index, nil
 }
 
 // ReadAt reads len(p) bytes into p starting at offset off in the underlying input source.

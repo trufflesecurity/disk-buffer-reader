@@ -189,7 +189,7 @@ func TestTmpDir(t *testing.T) {
 	tmpDir := "/tmp/dbrtest"
 
 	err := os.Mkdir(tmpDir, 0755)
-	if !os.IsExist(err) {
+	if err != nil && !os.IsExist(err) {
 		t.Fatal(err)
 	}
 	defer os.RemoveAll(tmpDir)

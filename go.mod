@@ -1,3 +1,3 @@
-module github.com/bill-rich/disk-buffer-reader
+module github.com/trufflesecurity/disk-buffer-reader
 
 go 1.19
