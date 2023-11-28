@@ -21,12 +21,30 @@ type DiskBufferReader struct {
 	index     int64
 }
 
+// For making New a variadic function
+type Options struct {
+	bufferName string
+}
+
 // New takes an io.Reader and creates returns an initialized DiskBufferReader.
-func New(r io.Reader) (*DiskBufferReader, error) {
-	tmpFile, err := ioutil.TempFile(os.TempDir(), "disk-buffer-file")
-	if err != nil {
-		return nil, err
+// Optionally, you can pass a string to give the tmpfile a custom name
+func New(r io.Reader, opts ...Options) (*DiskBufferReader, error) {
+	var opt Options
+	var tmpFile *os.File
+	var err error
+	if len(opts) > 0 {
+		opt = opts[0]
+		tmpFile, err = ioutil.TempFile(os.TempDir(), opt.bufferName)
+		if err != nil {
+			return nil, err
+		}
+	} else {
+		tmpFile, err = ioutil.TempFile(os.TempDir(), "disk-buffer-file")
+		if err != nil {
+			return nil, err
+		}
 	}
+
 	return &DiskBufferReader{
 		recording: true,
 		reader:    r,
