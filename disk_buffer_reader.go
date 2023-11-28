@@ -23,7 +23,7 @@ type DiskBufferReader struct {
 
 // For making New a variadic function
 type Options struct {
-	bufferName string
+	BufferName string
 }
 
 // New takes an io.Reader and creates returns an initialized DiskBufferReader.
@@ -34,7 +34,7 @@ func New(r io.Reader, opts ...Options) (*DiskBufferReader, error) {
 	var err error
 	if len(opts) > 0 {
 		opt = opts[0]
-		tmpFile, err = ioutil.TempFile(os.TempDir(), opt.bufferName)
+		tmpFile, err = ioutil.TempFile(os.TempDir(), opt.BufferName)
 		if err != nil {
 			return nil, err
 		}
