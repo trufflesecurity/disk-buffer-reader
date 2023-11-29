@@ -21,28 +21,30 @@ type DiskBufferReader struct {
 	index     int64
 }
 
-// For making New a variadic function
-type Options struct {
-	BufferName string
+type config struct{ bufferName string }
+
+// Options for creating a DiskBufferReader
+type Options func(*config)
+
+// WithBufferName sets the name of the temporary file.
+func WithBufferName(bufferName string) Options {
+	return func(c *config) {
+		c.bufferName = bufferName
+	}
 }
 
 // New takes an io.Reader and creates returns an initialized DiskBufferReader.
-// Optionally, you can pass a string to give the tmpfile a custom name
+// Optionally, you can pass a string(via Options) to give the tempfile a custom name
 func New(r io.Reader, opts ...Options) (*DiskBufferReader, error) {
-	var opt Options
-	var tmpFile *os.File
-	var err error
-	if len(opts) > 0 {
-		opt = opts[0]
-		tmpFile, err = ioutil.TempFile(os.TempDir(), opt.BufferName)
-		if err != nil {
-			return nil, err
-		}
-	} else {
-		tmpFile, err = ioutil.TempFile(os.TempDir(), "disk-buffer-file")
-		if err != nil {
-			return nil, err
-		}
+	const defaultBufferName = "disk-buffer-file"
+	cfg := config{bufferName: defaultBufferName}
+	for _, o := range opts {
+		o(&cfg)
+	}
+
+	tmpFile, err := ioutil.TempFile(os.TempDir(), cfg.bufferName)
+	if err != nil {
+		return nil, err
 	}
 
 	return &DiskBufferReader{
