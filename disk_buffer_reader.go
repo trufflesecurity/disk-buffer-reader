@@ -145,30 +145,6 @@ func (dbr *DiskBufferReader) Seek(offset int64, whence int) (int64, error) {
 
 		dbr.bytesRead += int64(n)
 		bytesToRead -= int64(n)
-
-		// const bufferSize = 32 * 1024 // 32KB
-		// buffer := make([]byte, bufferSize)
-		// for bytesToRead > 0 {
-		// 	chunkSize := int64(len(buffer))
-		// 	if bytesToRead < chunkSize {
-		// 		chunkSize = bytesToRead
-		// 	}
-		//
-		// 	n, err := io.ReadFull(dbr.reader, buffer[:chunkSize])
-		// 	if err != nil {
-		// 		if errors.Is(err, io.ErrUnexpectedEOF) {
-		// 			dbr.bytesRead += int64(n)
-		// 			break
-		// 		}
-		// 		if errors.Is(err, io.EOF) {
-		// 			break
-		// 		}
-		// 		return 0, err
-		// 	}
-		//
-		// 	dbr.bytesRead += int64(n)
-		// 	bytesToRead -= int64(n)
-		// }
 	}
 
 	dbr.index = newIndex
