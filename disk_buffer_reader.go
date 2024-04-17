@@ -143,8 +143,7 @@ func (dbr *DiskBufferReader) Seek(offset int64, whence int) (int64, error) {
 			return 0, err
 		}
 
-		dbr.bytesRead += int64(n)
-		bytesToRead -= int64(n)
+		dbr.bytesRead += n
 	}
 
 	dbr.index = newIndex
