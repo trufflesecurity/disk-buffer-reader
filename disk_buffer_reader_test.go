@@ -10,6 +10,8 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
+
+	"github.com/stretchr/testify/assert"
 )
 
 func TestDiskBufferReader(t *testing.T) {
@@ -217,6 +219,55 @@ func TestTmpDir(t *testing.T) {
 	}
 }
 
+func setupDiskBufferReader(t *testing.T, content string) *DiskBufferReader {
+	reader := strings.NewReader(content)
+	dbr, err := New(reader) // Assuming New initializes bytesRead and index properly
+	assert.NoError(t, err)
+
+	// Read only a part of the content to simulate partial reading
+	partialReadLength := len(content) / 2
+	buf := make([]byte, partialReadLength)
+	bytesRead, err := reader.Read(buf)
+	if err != nil && err != io.EOF {
+		t.Fatal("Failed to read initial content:", err)
+	}
+
+	dbr.bytesRead = int64(bytesRead)
+	dbr.index = int64(bytesRead)
+	return dbr
+}
+
+func TestDiskBufferReaderSeek(t *testing.T) {
+	const testContent = "Hello, world!"
+	partialReadLength := len(testContent) / 2
+
+	tests := []struct {
+		name    string
+		offset  int64
+		whence  int
+		wantPos int64
+		wantErr bool
+	}{
+		{"Seek from start within bounds", 5, io.SeekStart, 5, false},
+		{"Seek from start out of bounds negative", -1, io.SeekStart, 0, true},
+		{"Seek from start to end", int64(len(testContent) + 1), io.SeekStart, 14, false},
+		{"Seek within read content", int64(partialReadLength / 2), io.SeekStart, int64(partialReadLength / 2), false},
+		{"Seek just beyond read content", int64(partialReadLength + 1), io.SeekStart, int64(partialReadLength + 1), false},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			dbr := setupDiskBufferReader(t, testContent)
+			got, err := dbr.Seek(tt.offset, tt.whence)
+			if (err != nil) != tt.wantErr {
+				t.Errorf("Seek() error = %v, wantErr %v", err, tt.wantErr)
+			}
+
+			assert.Equal(t, tt.wantPos, got)
+		})
+	}
+}
+
 func BenchmarkSeek(b *testing.B) {
 	// Use a fixed data source for consistent benchmarking.
 	data := make([]byte, 100000) // Example: 100KB of data
@@ -239,8 +290,6 @@ func BenchmarkSeek(b *testing.B) {
 	for i := 0; i < b.N; i++ {
 		whence := whenceOptions[i%len(whenceOptions)] // Vary whence to cover different cases
 		_, err := dbr.Seek(offset, whence)
-		if err != nil {
-			b.Fatal(err)
-		}
+		assert.NoError(b, err)
 	}
 }
