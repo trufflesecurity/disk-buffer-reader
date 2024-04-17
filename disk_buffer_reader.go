@@ -135,32 +135,40 @@ func (dbr *DiskBufferReader) Seek(offset int64, whence int) (int64, error) {
 		return 0, fmt.Errorf("can not seek to before start of reader")
 	}
 
-	// If seeking past the bytes read and recording is on, fill the gap by reading the necessary bytes.
+	// If the new index is greater than the number of bytes read, read the bytes from the reader.
 	if newIndex > dbr.bytesRead {
 		bytesToRead := newIndex - dbr.bytesRead
-		const bufferSize = 32 * 1024 // 32KB
-		buffer := make([]byte, bufferSize)
-		for bytesToRead > 0 {
-			chunkSize := int64(len(buffer))
-			if bytesToRead < chunkSize {
-				chunkSize = bytesToRead
-			}
-
-			n, err := io.ReadFull(dbr.reader, buffer[:chunkSize])
-			if err != nil {
-				if errors.Is(err, io.ErrUnexpectedEOF) {
-					dbr.bytesRead += int64(n)
-					break
-				}
-				if errors.Is(err, io.EOF) {
-					break
-				}
-				return 0, err
-			}
-
-			dbr.bytesRead += int64(n)
-			bytesToRead -= int64(n)
+		n, err := io.CopyN(io.Discard, dbr.reader, bytesToRead)
+		if err != nil && !errors.Is(err, io.EOF) {
+			return 0, err
 		}
+
+		dbr.bytesRead += int64(n)
+		bytesToRead -= int64(n)
+
+		// const bufferSize = 32 * 1024 // 32KB
+		// buffer := make([]byte, bufferSize)
+		// for bytesToRead > 0 {
+		// 	chunkSize := int64(len(buffer))
+		// 	if bytesToRead < chunkSize {
+		// 		chunkSize = bytesToRead
+		// 	}
+		//
+		// 	n, err := io.ReadFull(dbr.reader, buffer[:chunkSize])
+		// 	if err != nil {
+		// 		if errors.Is(err, io.ErrUnexpectedEOF) {
+		// 			dbr.bytesRead += int64(n)
+		// 			break
+		// 		}
+		// 		if errors.Is(err, io.EOF) {
+		// 			break
+		// 		}
+		// 		return 0, err
+		// 	}
+		//
+		// 	dbr.bytesRead += int64(n)
+		// 	bytesToRead -= int64(n)
+		// }
 	}
 
 	dbr.index = newIndex

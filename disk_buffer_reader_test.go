@@ -197,6 +197,7 @@ func TestTmpDir(t *testing.T) {
 	defer os.RemoveAll(tmpDir)
 
 	os.Setenv("TMPDIR", tmpDir)
+	defer os.Unsetenv("TMPDIR")
 
 	reader := strings.NewReader("TestString")
 	dbr, err := New(reader)
@@ -258,6 +259,8 @@ func TestDiskBufferReaderSeek(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			dbr := setupDiskBufferReader(t, testContent)
+			defer dbr.Close()
+
 			got, err := dbr.Seek(tt.offset, tt.whence)
 			if (err != nil) != tt.wantErr {
 				t.Errorf("Seek() error = %v, wantErr %v", err, tt.wantErr)
